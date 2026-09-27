@@ -4,7 +4,7 @@
 
 Vyžaduje nainštalovaný HACS. V Home Assistante otvorte **HACS → ⋮ → Custom repositories**, pridajte `https://github.com/petosiso/HomeFleet-HA-integration` ako typ **Integration** a stiahnite **BlackLabs Watchdog**. Reštartujte Home Assistant a v **Nastavenia → Zariadenia a služby → Pridať integráciu** vyberte **BlackLabs Watchdog**.
 
-Repozitár nemusí byť zaradený do predvoleného katalógu HACS; stačí ho pridať ako vlastný repozitár. Nové verzie nainštalujte cez HACS, potom reštartujte HA.
+Repozitár nemusí byť zaradený do predvoleného katalógu HACS; stačí ho pridať ako vlastný repozitár. Vydania používajú GitHub Releases s tagmi `vX.Y.Z`, takže HACS zobrazí verzie a upozorní na novšie vydanie. Novú verziu nainštalujte cez HACS a potom reštartujte HA.
 
 ## Ručná inštalácia
 
@@ -12,7 +12,7 @@ Skopírujte `custom_components/homefleet` do konfiguračného adresára Home Ass
 
 Integrácia odosiela aktuálny report do `POST /api/ha-integration/lifechecks`. Pri zlyhaní ho zahodí; ďalší interval zozbiera nové dáta. Fronta sa neukladá. Keď HA nebeží, reporty nevznikajú.
 
-Inventár zahŕňa jeden záznam na integračnú doménu HA, nainštalované add-ony pri dostupnom Supervisorovi a nainštalované HACS repozitáre pri spustenom HACS. Neprítomný voliteľný zdroj dáva prázdnu kategóriu; chyba pri čítaní existujúceho zdroja označí report ako neúplný. Metadáta integrácií sa čítajú iba z HA cache, reportovanie nespúšťa ich načítavanie. Nakonfigurovaná, ale práve nenačítaná integrácia sa odošle ako doména bez verzie a nepovažuje sa za chybu. Iná chyba manifestu uvedie v `errorMessage` doménu, bezpečný typ výnimky a informáciu, či sa podarilo odoslať náhradný záznam. Verzia Supervisora sa číta z poľa `supervisor` jeho súhrnných údajov.
+Inventár zahŕňa jeden záznam na doménu nakonfigurovaných HA integrácií, nainštalované add-ony pri dostupnom Supervisorovi a nainštalované HACS repozitáre pri spustenom HACS. Interné komponenty a závislosti načítané cez `default_config`, napríklad `sensor`, `auth` alebo `webhook`, sa neposielajú. Integrácie nakonfigurované iba cez YAML bez `ConfigEntry` sa tiež neposielajú. Neprítomný voliteľný zdroj dáva prázdnu kategóriu; chyba pri čítaní existujúceho zdroja označí report ako neúplný. Metadáta integrácií sa čítajú iba z HA cache, reportovanie nespúšťa ich načítavanie. Nakonfigurovaná, ale práve nenačítaná integrácia sa odošle ako doména bez verzie a nepovažuje sa za chybu. Iná chyba manifestu uvedie v `errorMessage` doménu, bezpečný typ výnimky a informáciu, či sa podarilo odoslať náhradný záznam. Verzia Supervisora sa číta z poľa `supervisor` jeho súhrnných údajov.
 
 Chyby sa izolujú po položkách. Chybná entita, HACS repozitár alebo add-on sa vynechá; už získané aj nasledujúce platné položky sa odošlú. Verzie Supervisora a OS sa získavajú nezávisle od add-onov. Aj chyba iterovania celého zdroja zachová položky, ktoré už boli zozbierané. Report dostane `isComplete = false` a stručný `errorMessage` s kategóriou a poradím chybnej položky, bez surových hodnôt či textu výnimiek. Zobrazí sa najviac 20 detailov a počet ostatných chýb.
 

@@ -49,9 +49,8 @@ async def collect_entities(hass, selected: list[str], result: list[dict], errors
 
 
 async def collect_integrations(hass, result: list[dict], errors: list[str]) -> None:
-    """Read cached manifests only; reporting must not start integration loading."""
-    domains = {component.rsplit(".", 1)[-1] for component in hass.config.components}
-    domains.update(entry.domain for entry in hass.config_entries.async_entries(include_ignore=False))
+    """Collect configured integrations without internal HA components."""
+    domains = {entry.domain for entry in hass.config_entries.async_entries(include_ignore=False)}
     for index, domain in enumerate(sorted(domains), 1):
         await asyncio.sleep(0)
         try:

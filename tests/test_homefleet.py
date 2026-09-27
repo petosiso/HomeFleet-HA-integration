@@ -137,7 +137,8 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["ESPHOME"], [item["name"] for item in items])
 
     async def test_missing_manifest_preserves_other_integrations_and_marks_incomplete(self):
-        hass = fake_hass(components={"esphome", "z_removed"})
+        hass = fake_hass(components={"sensor", "auth"},
+                         entries=[types.SimpleNamespace(domain="esphome"), types.SimpleNamespace(domain="z_removed")])
         entry = types.SimpleNamespace(data={"entities": []}, options={})
 
         def load(_, domain):
@@ -345,10 +346,12 @@ class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
 class ContractTests(unittest.TestCase):
     def test_manifest_and_backend_contract(self):
         manifest = json.loads((ROOT / "custom_components/homefleet/manifest.json").read_text(encoding="utf-8"))
+        hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
         contract = json.loads((ROOT.parent / "App/Frontend/src/api/model/openapi.json").read_text(encoding="utf-8"))
         self.assertEqual("homefleet", manifest["domain"])
         self.assertEqual("BlackLabs Watchdog", manifest["name"])
-        self.assertEqual("0.1.1", manifest["version"])
+        self.assertEqual("0.1.2", manifest["version"])
+        self.assertTrue(hacs["hide_default_branch"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertIn("post", contract["paths"]["/api/ha-integration/lifechecks"])
         self.assertIn("get", contract["paths"]["/api/ha-integration/connection"])

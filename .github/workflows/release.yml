@@ -1,0 +1,30 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Verify manifest version
+        shell: bash
+        run: |
+          manifest_version="$(python3 -c 'import json; print(json.load(open("custom_components/homefleet/manifest.json", encoding="utf-8"))["version"])')"
+          if [[ "${GITHUB_REF_NAME}" != "v${manifest_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${manifest_version}." >&2
+            exit 1
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes --title "BlackLabs Watchdog ${GITHUB_REF_NAME}"

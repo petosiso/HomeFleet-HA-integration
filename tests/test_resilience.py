@@ -126,7 +126,8 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
             raise RuntimeError("broken iterator")
 
         hacs = types.SimpleNamespace(repositories=types.SimpleNamespace(list_all=repositories()))
-        report = await collector.collect(fake_hass(data={"hacs": hacs}, components={"esphome"}), entry())
+        report = await collector.collect(fake_hass(data={"hacs": hacs}, components={"sensor"},
+                                                   entries=[types.SimpleNamespace(domain="esphome")]), entry())
         self.assertEqual(["org/valid", "ESPHOME"], [item["name"] for item in report["inventory"]])
         self.assertFalse(report["isComplete"])
 
@@ -170,7 +171,8 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(collector, "collect_hacs", side_effect=blocked), \
              patch.object(collector, "SOURCE_TIMEOUT_SECONDS", .01):
-            report = await asyncio.wait_for(collector.collect(fake_hass(components={"esphome"}), entry()), timeout=1)
+            report = await asyncio.wait_for(collector.collect(fake_hass(components={"sensor"},
+                entries=[types.SimpleNamespace(domain="esphome")]), entry()), timeout=1)
         self.assertTrue(cancelled.is_set())
         self.assertEqual(["org/partial", "ESPHOME"], [item["name"] for item in report["inventory"]])
         self.assertFalse(report["isComplete"])
@@ -227,7 +229,8 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
              patch.object(collector, "collect_hacs", side_effect=hacs), \
              patch.object(collector, "SOURCE_TIMEOUT_SECONDS", .1), \
              patch.object(collector, "COLLECTION_TIMEOUT_SECONDS", .15):
-            report = await asyncio.wait_for(collector.collect(fake_hass(components={"esphome"}), entry()), timeout=1)
+            report = await asyncio.wait_for(collector.collect(fake_hass(components={"sensor"},
+                entries=[types.SimpleNamespace(domain="esphome")]), entry()), timeout=1)
         self.assertEqual({"addons", "hacs"}, started)
         self.assertEqual(started, cancelled)
         self.assertEqual(["ESPHOME"], [item["name"] for item in report["inventory"]])
@@ -278,12 +281,12 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
                 send.assert_awaited_once()
                 await reporter.stop()
 
-    async def test_ignored_discovery_is_not_an_installed_integration(self):
-        hass = fake_hass(components={"esphome"})
+    async def test_internal_components_and_ignored_discovery_are_not_inventory(self):
+        hass = fake_hass(components={"sensor", "auth", "webhook"})
         ignored = types.SimpleNamespace(entry_id="ignored", domain="ignored_discovery")
         hass.config_entries.async_entries = lambda **kwargs: [] if kwargs.get("include_ignore") is False else [ignored]
         report = await collector.collect(hass, entry())
-        self.assertEqual(["ESPHOME"], [item["name"] for item in report["inventory"]])
+        self.assertEqual([], report["inventory"])
         self.assertTrue(report["isComplete"])
 
     async def test_total_collection_timeout_keeps_partial_report(self):
