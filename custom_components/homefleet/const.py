@@ -2,7 +2,7 @@
 
 DOMAIN = "homefleet"
 DISPLAY_NAME = "BlackLabs Watchdog"
-INTEGRATION_VERSION = "0.1.3"
+INTEGRATION_VERSION = "0.1.4"
 CONF_URL = "url"
 CONF_INTEGRATION_KEY = "integration_key"
 CONF_ENTITIES = "entities"
