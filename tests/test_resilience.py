@@ -93,6 +93,30 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("položka 2", report["errorMessage"])
         self.assertNotIn("private model data", report["errorMessage"])
 
+    async def test_ha_2026_2_addons_use_supervisor_info(self):
+        module = supervisor()
+        del module.get_addons_list
+        module.get_supervisor_info = lambda _: {"addons": [
+            {"name": "Let's Encrypt", "version": "6.5.0", "state": "stopped"},
+            {"name": "Mosquitto broker", "version": "6.5.2", "state": "started"},
+        ]}
+        with patch.dict(sys.modules, {"homeassistant.components.hassio": module}):
+            report = await collector.collect(fake_hass(data={"hassio": object()}), entry())
+        self.assertTrue(report["isComplete"])
+        self.assertEqual(["Let's Encrypt", "Mosquitto broker"],
+                         [item["name"] for item in report["inventory"]])
+        self.assertEqual(["stopped", "started"], [item["state"] for item in report["inventory"]])
+
+    async def test_addon_source_error_reports_safe_exception_type(self):
+        module = supervisor()
+        del module.get_addons_list
+        module.get_supervisor_info = lambda _: (_ for _ in ()).throw(RuntimeError("private data"))
+        with patch.dict(sys.modules, {"homeassistant.components.hassio": module}):
+            report = await collector.collect(fake_hass(data={"hassio": object()}), entry())
+        self.assertFalse(report["isComplete"])
+        self.assertIn("Add-ony: nepodarilo sa načítať zdroj (RuntimeError)", report["errorMessage"])
+        self.assertNotIn("private data", report["errorMessage"])
+
     async def test_addon_failure_keeps_versions_and_other_addons(self):
         module = supervisor(addons=[{"name": "first"}, {}, {"name": "last"}])
         with patch.dict(sys.modules, {"homeassistant.components.hassio": module}):

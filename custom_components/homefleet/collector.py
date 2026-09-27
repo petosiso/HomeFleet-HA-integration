@@ -88,19 +88,25 @@ async def collect_addons(hass, result: list[dict], errors: list[str]) -> None:
     """An invalid add-on must not remove other add-ons or version fields."""
     if "hassio" not in hass.data:
         return
-    from homeassistant.components.hassio import get_addons_list
-
     convert_models = False
     try:
-        addons = get_addons_list(hass)
-    except Exception:
-        # HA 2026.9 serializes all cached models eagerly in the public helper.
-        # Fall back to that same cache to isolate a single model's to_dict failure.
-        from homeassistant.components.hassio.const import DATA_ADDONS_LIST
+        from homeassistant.components.hassio import get_addons_list
+    except ImportError:
+        # HA 2026.2 exposes installed add-ons in the Supervisor info helper.
+        from homeassistant.components.hassio import get_supervisor_info
 
-        addons = hass.data[DATA_ADDONS_LIST]
-        convert_models = True
-        errors.append("Add-ony: hromadné čítanie zlyhalo; použitá cache po položkách")
+        addons = get_supervisor_info(hass)["addons"]
+    else:
+        try:
+            addons = get_addons_list(hass)
+        except Exception:
+            # HA 2026.9 serializes all cached models eagerly in the public helper.
+            # Fall back to that same cache to isolate a single model's to_dict failure.
+            from homeassistant.components.hassio.const import DATA_ADDONS_LIST
+
+            addons = hass.data[DATA_ADDONS_LIST]
+            convert_models = True
+            errors.append("Add-ony: hromadné čítanie zlyhalo; použitá cache po položkách")
     for index, addon in enumerate(addons, 1):
         await asyncio.sleep(0)
         try:
@@ -156,8 +162,8 @@ async def _collect_source(name: str, operation, errors: list[str]) -> None:
             await operation
     except TimeoutError:
         errors.append(f"{name}: vypršal časový limit zberu")
-    except Exception:
-        errors.append(f"{name}: nepodarilo sa načítať zdroj")
+    except Exception as err:
+        errors.append(f"{name}: nepodarilo sa načítať zdroj ({type(err).__name__})")
 
 
 def _integration_error(domain, index: int, error: Exception, *, included: bool) -> str:

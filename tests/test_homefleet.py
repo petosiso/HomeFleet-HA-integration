@@ -350,7 +350,7 @@ class ContractTests(unittest.TestCase):
         contract = json.loads((ROOT.parent / "App/Frontend/src/api/model/openapi.json").read_text(encoding="utf-8"))
         self.assertEqual("homefleet", manifest["domain"])
         self.assertEqual("BlackLabs Watchdog", manifest["name"])
-        self.assertEqual("0.1.2", manifest["version"])
+        self.assertEqual("0.1.3", manifest["version"])
         self.assertTrue(hacs["hide_default_branch"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertIn("post", contract["paths"]["/api/ha-integration/lifechecks"])
