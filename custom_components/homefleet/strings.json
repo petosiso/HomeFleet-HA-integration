@@ -1,0 +1,12 @@
+{
+  "config": {
+    "step": {
+      "user": {"title": "Pripojenie k HomeFleet", "data": {"url": "URL HomeFleet servera", "integration_key": "Integračný kľúč"}},
+      "monitoring": {"title": "Sledovanie", "data": {"entities": "Sledované entity", "interval": "Interval odosielania v minútach (1–1440)"}},
+      "reconfigure": {"title": "Zmeniť pripojenie", "data": {"url": "URL HomeFleet servera", "integration_key": "Integračný kľúč"}}
+    },
+    "error": {"invalid_url": "Zadajte platnú HTTPS adresu.", "invalid_key": "Integračný kľúč je neplatný.", "cannot_connect": "K serveru sa nepodarilo pripojiť."},
+    "abort": {"already_configured": "HomeFleet je už nakonfigurovaný.", "already_in_progress": "Konfigurácia HomeFleet už prebieha.", "reconfigure_successful": "Pripojenie bolo zmenené."}
+  },
+  "options": {"step": {"init": {"title": "Sledovanie HomeFleet", "data": {"entities": "Sledované entity", "interval": "Interval odosielania v minútach (1–1440)"}}}}
+}
