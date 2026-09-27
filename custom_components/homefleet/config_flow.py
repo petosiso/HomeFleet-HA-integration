@@ -1,4 +1,4 @@
-"""UI configuration for HomeFleet."""
+"""UI configuration for BlackLabs Watchdog."""
 
 from urllib.parse import urlsplit
 
@@ -14,6 +14,7 @@ from .const import (
     CONF_INTERVAL,
     CONF_URL,
     DEFAULT_INTERVAL,
+    DISPLAY_NAME,
     DOMAIN,
     MAX_INTERVAL,
 )
@@ -96,7 +97,7 @@ class HomeFleetConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="already_configured")
         if user_input is not None:
-            return self.async_create_entry(title="HomeFleet", data={**self._connection, **user_input})
+            return self.async_create_entry(title=DISPLAY_NAME, data={**self._connection, **user_input})
         return self.async_show_form(step_id="monitoring", data_schema=monitoring_schema({}))
 
     async def async_step_reconfigure(self, user_input=None):

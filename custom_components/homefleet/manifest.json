@@ -1,7 +1,7 @@
 {
   "domain": "homefleet",
-  "name": "HomeFleet",
-  "version": "0.1.0",
+  "name": "BlackLabs Watchdog",
+  "version": "0.1.1",
   "config_flow": true,
   "single_config_entry": true,
   "documentation": "https://github.com/petosiso/HomeFleet-HA-integration",

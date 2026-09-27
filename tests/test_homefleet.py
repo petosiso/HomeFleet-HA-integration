@@ -64,10 +64,14 @@ def install_stubs():
     module("homeassistant.helpers.entity_registry", async_get=lambda _: registry)
     module("homeassistant.const", STATE_UNAVAILABLE="unavailable", STATE_UNKNOWN="unknown", __version__="2026.9.0")
 
+    class IntegrationNotLoaded(Exception):
+        pass
+
     def get_integration(_, domain):
         return types.SimpleNamespace(manifest={"name": domain.upper(), "version": "1.0"})
 
-    module("homeassistant.loader", async_get_loaded_integration=get_integration)
+    module("homeassistant.loader", IntegrationNotLoaded=IntegrationNotLoaded,
+           async_get_loaded_integration=get_integration)
     module("homeassistant.core", HomeAssistant=object, callback=lambda fn: fn)
     module("homeassistant.helpers.event", async_track_time_interval=lambda *args: lambda: None)
     module("homeassistant.helpers.start", async_at_started=lambda *args: lambda: None)
@@ -146,7 +150,19 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["ESPHome", "z_removed"], [item["name"] for item in report["inventory"]])
         self.assertIsNone(report["inventory"][1]["version"])
         self.assertFalse(report["isComplete"])
-        self.assertIn("HA integrácie", report["errorMessage"])
+        self.assertIn("HA integrácia [z_removed]", report["errorMessage"])
+        self.assertIn("FileNotFoundError", report["errorMessage"])
+        self.assertIn("odoslaná ako doména bez verzie", report["errorMessage"])
+
+    async def test_configured_but_unloaded_integration_is_not_an_error(self):
+        hass = fake_hass(entries=[types.SimpleNamespace(domain="sleeping", entry_id="entry")])
+        with patch.object(collector, "async_get_loaded_integration",
+                          side_effect=collector.IntegrationNotLoaded("sleeping")):
+            report = await collector.collect(hass, types.SimpleNamespace(data={}, options={}))
+        self.assertEqual(["sleeping"], [item["name"] for item in report["inventory"]])
+        self.assertIsNone(report["inventory"][0]["version"])
+        self.assertTrue(report["isComplete"])
+        self.assertIsNone(report["errorMessage"])
 
     async def test_supervisor_uses_root_info_field_names(self):
         supervisor = types.ModuleType("homeassistant.components.hassio")
@@ -227,6 +243,18 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         await task
         self.assertEqual(1, self.request.await_count)
 
+    async def test_setup_renames_existing_entry_without_changing_domain(self):
+        hass = fake_hass()
+        hass.data = {}
+        hass.config_entries.async_update_entry = Mock(side_effect=lambda entry, **changes: setattr(entry, "title", changes["title"]))
+        entry = types.SimpleNamespace(entry_id="entry", title="HomeFleet", data={}, options={},
+                                      add_update_listener=Mock(return_value=lambda: None), async_on_unload=Mock())
+        with patch.object(runtime.Reporter, "start"):
+            self.assertTrue(await runtime.async_setup_entry(hass, entry))
+        self.assertEqual("BlackLabs Watchdog", entry.title)
+        hass.config_entries.async_update_entry.assert_called_once_with(entry, title="BlackLabs Watchdog")
+        self.assertIn(entry.entry_id, hass.data["homefleet"])
+
     async def test_reporting_starts_after_ha_started_and_uses_five_minutes(self):
         hass = fake_hass()
         entry = types.SimpleNamespace(
@@ -261,6 +289,7 @@ class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("monitoring", result["step_id"])
         result = await flow.async_step_monitoring({"entities": ["sensor.one"], "interval": 5})
         self.assertEqual("create_entry", result["type"])
+        self.assertEqual("BlackLabs Watchdog", result["title"])
         self.assertEqual("https://example.test", result["data"]["url"])
         self.assertEqual(["sensor.one"], result["data"]["entities"])
         self.assertEqual("GET", self.request.await_args.args[3])
@@ -318,6 +347,8 @@ class ContractTests(unittest.TestCase):
         manifest = json.loads((ROOT / "custom_components/homefleet/manifest.json").read_text(encoding="utf-8"))
         contract = json.loads((ROOT.parent / "App/Frontend/src/api/model/openapi.json").read_text(encoding="utf-8"))
         self.assertEqual("homefleet", manifest["domain"])
+        self.assertEqual("BlackLabs Watchdog", manifest["name"])
+        self.assertEqual("0.1.1", manifest["version"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertIn("post", contract["paths"]["/api/ha-integration/lifechecks"])
         self.assertIn("get", contract["paths"]["/api/ha-integration/connection"])
@@ -334,6 +365,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(("apiKey", "header", "X-Integration-Key"), (scheme["type"], scheme["in"], scheme["name"]))
 
     def test_collected_payload_validates_against_generated_openapi(self):
+        manifest = json.loads((ROOT / "custom_components/homefleet/manifest.json").read_text(encoding="utf-8"))
         contract = json.loads((ROOT.parent / "App/Frontend/src/api/model/openapi.json").read_text(encoding="utf-8"))
         validator = Draft202012Validator({"$ref": "#/components/schemas/LifecheckReportRequest",
                                          "components": contract["components"]})
@@ -341,6 +373,7 @@ class ContractTests(unittest.TestCase):
         hass = fake_hass({"sensor.null": types.SimpleNamespace(state=None, attributes={})}, components={"esphome"})
         entry = types.SimpleNamespace(data={"entities": ["sensor.null", "sensor.missing"]}, options={})
         report = asyncio.run(collector.collect(hass, entry))
+        self.assertEqual(manifest["version"], report["integrationVersion"])
         validator.validate(report)
         for changed in ({"inventory": None}, {"monitoredEntities": None}, {"haVersion": "x" * 51},
                         {"inventory": [{"type": 99, "name": "bad"}]},

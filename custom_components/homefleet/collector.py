@@ -4,9 +4,9 @@ import asyncio
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN, __version__ as HA_VERSION
 from homeassistant.helpers import entity_registry as er
-from homeassistant.loader import async_get_loaded_integration
+from homeassistant.loader import IntegrationNotLoaded, async_get_loaded_integration
 
-from .const import COLLECTION_TIMEOUT_SECONDS, CONF_ENTITIES, SOURCE_TIMEOUT_SECONDS
+from .const import COLLECTION_TIMEOUT_SECONDS, CONF_ENTITIES, INTEGRATION_VERSION, SOURCE_TIMEOUT_SECONDS
 from .hacs_inventory import collect as collect_hacs
 from .report_data import InvalidReportValue, inventory_item, item_error, report_text
 
@@ -57,12 +57,17 @@ async def collect_integrations(hass, result: list[dict], errors: list[str]) -> N
         try:
             manifest = async_get_loaded_integration(hass, domain).manifest
             item = inventory_item(1, manifest.get("name") or domain, manifest.get("version"))
+        except IntegrationNotLoaded:
+            # Configured integrations may legitimately not be loaded. The domain
+            # is still useful inventory and an unavailable version is optional.
+            item = inventory_item(1, domain)
         except Exception as err:
-            errors.append(item_error("HA integrácie", index, err))
             try:
                 item = inventory_item(1, domain)
             except Exception:
+                errors.append(_integration_error(domain, index, err, included=False))
                 continue
+            errors.append(_integration_error(domain, index, err, included=True))
         result.append(item)
 
 
@@ -114,7 +119,7 @@ async def collect(hass, entry) -> dict:
         "haVersion": HA_VERSION,
         "supervisorVersion": None,
         "osVersion": None,
-        "integrationVersion": "0.1.0",
+        "integrationVersion": INTEGRATION_VERSION,
         "isComplete": True,
         "errorMessage": None,
         "monitoredEntities": [],
@@ -154,3 +159,11 @@ async def _collect_source(name: str, operation, errors: list[str]) -> None:
         errors.append(f"{name}: vypršal časový limit zberu")
     except Exception:
         errors.append(f"{name}: nepodarilo sa načítať zdroj")
+
+
+def _integration_error(domain, index: int, error: Exception, *, included: bool) -> str:
+    """Describe a manifest failure without exposing exception text or report data."""
+    identifier = domain if isinstance(domain, str) else f"položka {index}"
+    field = f", pole {error}" if isinstance(error, InvalidReportValue) else ""
+    outcome = "odoslaná ako doména bez verzie" if included else "položka vynechaná"
+    return f"HA integrácia [{identifier}]: {type(error).__name__}{field}; {outcome}"

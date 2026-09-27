@@ -1,4 +1,4 @@
-"""Periodically send current Home Assistant health to HomeFleet."""
+"""Periodically send current Home Assistant health to BlackLabs Watchdog."""
 
 import asyncio
 from datetime import timedelta
@@ -10,7 +10,7 @@ from homeassistant.helpers.start import async_at_started
 
 from .api import BackendResponseError, BackendUnavailableError, InvalidKeyError, request
 from .collector import collect
-from .const import CONF_INTEGRATION_KEY, CONF_INTERVAL, CONF_URL, DEFAULT_INTERVAL, DOMAIN, MAX_INTERVAL, REPORT_TIMEOUT_SECONDS
+from .const import CONF_INTEGRATION_KEY, CONF_INTERVAL, CONF_URL, DEFAULT_INTERVAL, DISPLAY_NAME, DOMAIN, MAX_INTERVAL, REPORT_TIMEOUT_SECONDS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class Reporter:
         interval = self.entry.options.get(CONF_INTERVAL, self.entry.data.get(CONF_INTERVAL, DEFAULT_INTERVAL))
         if isinstance(interval, bool) or not isinstance(interval, int) or not 1 <= interval <= MAX_INTERVAL:
             # Older entries can contain values accepted before interval validation.
-            _LOGGER.warning("HomeFleet má neplatný interval; používa predvolených 5 minút")
+            _LOGGER.warning("BlackLabs Watchdog má neplatný interval; používa predvolených 5 minút")
             interval = DEFAULT_INTERVAL
         self._cancel_timer = async_track_time_interval(self.hass, self._schedule, timedelta(minutes=interval))
         self._schedule()
@@ -61,20 +61,21 @@ class Reporter:
                 async with asyncio.timeout(REPORT_TIMEOUT_SECONDS):
                     payload = await collect(self.hass, self.entry)
                     if payload.get("isComplete") is False:
-                        _LOGGER.warning("HomeFleet odosiela neúplný report; podrobnosti sú v errorMessage reportu")
+                        _LOGGER.warning("BlackLabs Watchdog odosiela neúplný report: %s",
+                                        payload.get("errorMessage") or "dôvod nie je dostupný")
                     await request(self.hass, self.entry.data[CONF_URL], self.entry.data[CONF_INTEGRATION_KEY],
                                   "POST", "/api/ha-integration/lifechecks", payload)
             except InvalidKeyError:
-                _LOGGER.error("HomeFleet odmietol integračný kľúč")
+                _LOGGER.error("BlackLabs Watchdog: server odmietol integračný kľúč")
             except BackendResponseError as err:
-                _LOGGER.warning("HomeFleet odmietol report: HTTP %s (%s)", err.status, err.reason)
+                _LOGGER.warning("BlackLabs Watchdog: server odmietol report: HTTP %s (%s)", err.status, err.reason)
             except BackendUnavailableError as err:
-                _LOGGER.warning("HomeFleet sa nepodarilo kontaktovať (%s)", err.reason)
+                _LOGGER.warning("BlackLabs Watchdog sa nepodarilo kontaktovať (%s)", err.reason)
             except TimeoutError:
-                _LOGGER.warning("HomeFleet prekročil časový limit pokusu; ďalší interval vytvorí nový report")
+                _LOGGER.warning("BlackLabs Watchdog prekročil časový limit pokusu; ďalší interval vytvorí nový report")
             except Exception as err:
                 # Exception text/tracebacks may contain source values or credentials.
-                _LOGGER.error("HomeFleet nedokázal zostaviť alebo odoslať report (%s)", type(err).__name__)
+                _LOGGER.error("BlackLabs Watchdog nedokázal zostaviť alebo odoslať report (%s)", type(err).__name__)
 
     async def stop(self):
         """Stop scheduling before cancelling and awaiting active tasks."""
@@ -93,6 +94,8 @@ class Reporter:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
+    if entry.title != DISPLAY_NAME:
+        hass.config_entries.async_update_entry(entry, title=DISPLAY_NAME)
     reporter = Reporter(hass, entry)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = reporter
     entry.async_on_unload(entry.add_update_listener(_reload_entry))

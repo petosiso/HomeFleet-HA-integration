@@ -1,4 +1,4 @@
-"""HomeFleet HTTP transport."""
+"""BlackLabs Watchdog HTTP transport."""
 
 import asyncio
 import json
@@ -87,5 +87,5 @@ def _encode_report(payload: dict) -> bytes:
     if payload.get("errorMessage"):
         error += " " + payload["errorMessage"][:2048]
     reduced = {**payload, "isComplete": False, "errorMessage": error, "monitoredEntities": [], "inventory": []}
-    _LOGGER.warning("HomeFleet report prekročil 1 MiB; odosiela sa neúplný lifecheck bez entít a inventára")
+    _LOGGER.warning("BlackLabs Watchdog report prekročil 1 MiB; odosiela sa neúplný lifecheck bez entít a inventára")
     return json.dumps(reduced, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")

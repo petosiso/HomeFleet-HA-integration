@@ -1,18 +1,18 @@
-# HomeFleet integrácia pre Home Assistant
+# BlackLabs Watchdog pre Home Assistant
 
 ## Inštalácia cez HACS
 
-Vyžaduje nainštalovaný HACS. V Home Assistante otvorte **HACS → ⋮ → Custom repositories**, pridajte `https://github.com/petosiso/HomeFleet-HA-integration` ako typ **Integration** a stiahnite HomeFleet. Reštartujte Home Assistant a v **Nastavenia → Zariadenia a služby → Pridať integráciu** vyberte **HomeFleet**.
+Vyžaduje nainštalovaný HACS. V Home Assistante otvorte **HACS → ⋮ → Custom repositories**, pridajte `https://github.com/petosiso/HomeFleet-HA-integration` ako typ **Integration** a stiahnite **BlackLabs Watchdog**. Reštartujte Home Assistant a v **Nastavenia → Zariadenia a služby → Pridať integráciu** vyberte **BlackLabs Watchdog**.
 
 Repozitár nemusí byť zaradený do predvoleného katalógu HACS; stačí ho pridať ako vlastný repozitár. Nové verzie nainštalujte cez HACS, potom reštartujte HA.
 
 ## Ručná inštalácia
 
-Skopírujte `custom_components/homefleet` do konfiguračného adresára Home Assistanta a reštartujte HA. V **Nastavenia → Zariadenia a služby** pridajte integráciu **HomeFleet**. Zadajte HTTPS adresu HomeFleet backendu a existujúci 64-znakový `integration_key` príslušnej inštalácie. Vyberte sledované entity a interval odosielania (predvolene 5 minút, povolené 1 až 1440 minút). V možnostiach možno zmeniť entity a interval; cez opätovnú konfiguráciu adresu a kľúč. Neplatný interval uložený staršou verziou pri spustení použije predvolených 5 minút a zaloguje upozornenie.
+Skopírujte `custom_components/homefleet` do konfiguračného adresára Home Assistanta a reštartujte HA. V **Nastavenia → Zariadenia a služby** pridajte integráciu **BlackLabs Watchdog**. Zadajte HTTPS adresu HomeFleet backendu a existujúci 64-znakový `integration_key` príslušnej inštalácie. Vyberte sledované entity a interval odosielania (predvolene 5 minút, povolené 1 až 1440 minút). V možnostiach možno zmeniť entity a interval; cez opätovnú konfiguráciu adresu a kľúč. Neplatný interval uložený staršou verziou pri spustení použije predvolených 5 minút a zaloguje upozornenie.
 
 Integrácia odosiela aktuálny report do `POST /api/ha-integration/lifechecks`. Pri zlyhaní ho zahodí; ďalší interval zozbiera nové dáta. Fronta sa neukladá. Keď HA nebeží, reporty nevznikajú.
 
-Inventár zahŕňa jeden záznam na integračnú doménu HA, nainštalované add-ony pri dostupnom Supervisorovi a nainštalované HACS repozitáre pri spustenom HACS. Neprítomný voliteľný zdroj dáva prázdnu kategóriu; chyba pri čítaní existujúceho zdroja označí report ako neúplný. Metadáta integrácií sa čítajú iba z HA cache, reportovanie nespúšťa ich načítavanie. Pri nedostupnom alebo chybnom manifeste sa odošle doména bez verzie a ostatné položky zostanú zachované. Verzia Supervisora sa číta z poľa `supervisor` jeho súhrnných údajov.
+Inventár zahŕňa jeden záznam na integračnú doménu HA, nainštalované add-ony pri dostupnom Supervisorovi a nainštalované HACS repozitáre pri spustenom HACS. Neprítomný voliteľný zdroj dáva prázdnu kategóriu; chyba pri čítaní existujúceho zdroja označí report ako neúplný. Metadáta integrácií sa čítajú iba z HA cache, reportovanie nespúšťa ich načítavanie. Nakonfigurovaná, ale práve nenačítaná integrácia sa odošle ako doména bez verzie a nepovažuje sa za chybu. Iná chyba manifestu uvedie v `errorMessage` doménu, bezpečný typ výnimky a informáciu, či sa podarilo odoslať náhradný záznam. Verzia Supervisora sa číta z poľa `supervisor` jeho súhrnných údajov.
 
 Chyby sa izolujú po položkách. Chybná entita, HACS repozitár alebo add-on sa vynechá; už získané aj nasledujúce platné položky sa odošlú. Verzie Supervisora a OS sa získavajú nezávisle od add-onov. Aj chyba iterovania celého zdroja zachová položky, ktoré už boli zozbierané. Report dostane `isComplete = false` a stručný `errorMessage` s kategóriou a poradím chybnej položky, bez surových hodnôt či textu výnimiek. Zobrazí sa najviac 20 detailov a počet ostatných chýb.
 
@@ -24,9 +24,9 @@ Backendový limit zostáva 1 MiB (1 048 576 bajtov). Klient pred odoslaním zmer
 
 Textové limity sa kontrolujú podľa UTF-16 jednotiek používaných .NET a SQL Serverom. Opisné metadáta (názov, doména, verzia inventára) sa podľa potreby skrátia bez rozdelenia Unicode znaku. Surový stav entity sa nikdy neskracuje: ak je neplatného typu, obsahuje neplatný Unicode alebo presahuje DB limit, vynechá sa iba táto entita a report je neúplný. Existujúci stav `null` zostáva dostupný a nemení sa na `Missing`. Chýbajúca entita sa naďalej posiela ako `Missing` s hodnotou `null`.
 
-Logy rozlišujú timeout, chybu TLS, sieťové zlyhanie a HTTP odpoveď vrátane stavov 400 (neplatný report), 413 (priveľký report), 429 (limit požiadaviek) a 5xx (chyba servera). Obsah chybových odpovedí, payload, integračný kľúč ani text neočakávaných výnimiek sa nelogujú. Ani pri 429 sa nezaraďuje opakovanie; čaká sa na ďalší bežný interval.
+Logy rozlišujú timeout, chybu TLS, sieťové zlyhanie a HTTP odpoveď vrátane stavov 400 (neplatný report), 413 (priveľký report), 429 (limit požiadaviek) a 5xx (chyba servera). Pri neúplnom reporte sa do HA logu zapíše rovnaký bezpečný diagnostický text ako do `errorMessage`. Obsah chybových odpovedí, payload, integračný kľúč ani text neočakávaných výnimiek sa nelogujú. Ani pri 429 sa nezaraďuje opakovanie; čaká sa na ďalší bežný interval.
 
-Na jednu HA inštaláciu je povolená jedna konfigurácia HomeFleet vrátane ochrany pred súbežnými sprievodcami. Pri unload/reload sa najprv zruší plánovanie a potom rozpracované odosielanie.
+Na jednu HA inštaláciu je povolená jedna konfigurácia BlackLabs Watchdog vrátane ochrany pred súbežnými sprievodcami. Pri unload/reload sa najprv zruší plánovanie a potom rozpracované odosielanie.
 
 Prenositeľné testy spúšťajte z adresára `Integration` v samostatnom Python prostredí. Používajú skutočné knižnice Voluptuous, aiohttp a JSON Schema; HA rozhrania majú testovacie náhrady. HTTPS testy používajú lokálny server a dočasnú certifikačnú autoritu, bez kontaktovania skutočného backendu. Kontraktový test validuje zozbieraný payload proti OpenAPI, preto pred ním spustite backendový build.
 
@@ -47,4 +47,4 @@ python -m pytest -q tests/ha
 
 Lokálne boli overené prenositeľné Python testy na Pythone 3.12, backendový build a testy nad izolovanou SQLite databázou, frontendový typecheck a lint. Sada pre skutočný HA, `hassfest`, HACS runtime a odosielanie na testovacej HA inštalácii zatiaľ neboli spustené; Windows pracovisko nemá Linux/WSL. HA 2026.9.3 je cieľ testov, nie deklarácia overenej prevádzkovej kompatibility. Žiadna verzia HACS zatiaľ nebola prevádzkovo overená.
 
-Štruktúra balíka je určená aj pre HACS, publikovanie nie je súčasťou implementácie. Backendové testy sa z koreňa projektu spúšťajú cez `dotnet test App/Backend.Tests/HomeFleet.Api.Tests.csproj`.
+Štruktúra balíka je určená aj pre HACS. Backendové testy sa z koreňa projektu spúšťajú cez `dotnet test App/Backend.Tests/HomeFleet.Api.Tests.csproj`.

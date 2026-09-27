@@ -196,6 +196,17 @@ class ResilienceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("second", second["monitoredEntities"][0]["state"])
         self.assertFalse(reporter._lock.locked())
 
+    async def test_incomplete_report_logs_safe_detailed_reason(self):
+        reporter = runtime.Reporter(fake_hass(), entry())
+        payload = {"isComplete": False,
+                   "errorMessage": "HA integrácia [demo]: FileNotFoundError; odoslaná ako doména bez verzie"}
+        with patch.object(runtime, "collect", return_value=payload), \
+             patch.object(runtime, "request", new_callable=AsyncMock), self.assertLogs(runtime._LOGGER) as logs:
+            await reporter.send()
+        output = " ".join(logs.output)
+        self.assertIn("BlackLabs Watchdog", output)
+        self.assertIn(payload["errorMessage"], output)
+
     async def test_two_slow_sources_do_not_starve_healthy_source(self):
         started, cancelled = set(), set()
 
