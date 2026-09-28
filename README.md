@@ -30,6 +30,8 @@ Backendový limit zostáva 1 MiB (1 048 576 bajtov). Klient pred odoslaním zmer
 
 Textové limity sa kontrolujú podľa UTF-16 jednotiek používaných .NET a SQL Serverom. Opisné metadáta (názov, doména, verzia inventára) sa podľa potreby skrátia bez rozdelenia Unicode znaku. Surový stav entity sa nikdy neskracuje: ak je neplatného typu, obsahuje neplatný Unicode alebo presahuje DB limit, vynechá sa iba táto entita a report je neúplný. Existujúci stav `null` zostáva dostupný a nemení sa na `Missing`. Chýbajúca entita sa naďalej posiela ako `Missing` s hodnotou `null`.
 
+Dostupnosť entity (`availability`) sa od verzie 0.1.5 vyhodnocuje v tomto poradí: entita nie je v stavoch ani v registri → `Missing` (4); entita je v registri vypnutá (`disabled_by`) → `Disabled` (5); stav `unavailable` alebo zapnutá entita z registra bez stavu → `Unavailable` (2); stav `unknown` → `Unknown` (3); inak `Available` (1). `Unknown` teda znamená iba bežiacu entitu, ktorá ešte nemá hodnotu, napríklad MQTT senzor bez prijatej správy od reštartu HA. Hodnotu 5 prijíma iba backend s podporou `Disabled`; backend preto nasaďte pred aktualizáciou integrácie.
+
 Logy rozlišujú timeout, chybu TLS, sieťové zlyhanie a HTTP odpoveď vrátane stavov 400 (neplatný report), 413 (priveľký report), 429 (limit požiadaviek) a 5xx (chyba servera). Pri neúplnom reporte sa do HA logu zapíše rovnaký bezpečný diagnostický text ako do `errorMessage`. Obsah chybových odpovedí, payload, integračný kľúč ani text neočakávaných výnimiek sa nelogujú. Ani pri 429 sa nezaraďuje opakovanie; čaká sa na ďalší bežný interval.
 
 Na jednu HA inštaláciu je povolená jedna konfigurácia BlackLabs Watchdog vrátane ochrany pred súbežnými sprievodcami. Pri unload/reload sa najprv zruší plánovanie a potom rozpracované odosielanie.
@@ -51,6 +53,6 @@ python -m pip install -r requirements-ha-test.txt
 python -m pytest -q tests/ha
 ```
 
-Lokálne prešlo 53 prenositeľných Python testov vrátane simulácie HA 2026.2.2; predchádzajúce zmeny overili backendový build, testy nad izolovanou SQLite databázou, frontendový typecheck a lint. Sada pre skutočný HA, `hassfest`, HACS runtime a odosielanie na testovacej HA inštalácii zatiaľ neboli spustené; Windows pracovisko nemá Linux/WSL. HA 2026.9.3 je cieľ testov, nie deklarácia overenej prevádzkovej kompatibility. Žiadna verzia HACS zatiaľ nebola prevádzkovo overená.
+Lokálne prešlo 54 prenositeľných Python testov vrátane simulácie HA 2026.2.2; predchádzajúce zmeny overili backendový build, testy nad izolovanou SQLite databázou, frontendový typecheck a lint. Sada pre skutočný HA, `hassfest`, HACS runtime a odosielanie na testovacej HA inštalácii zatiaľ neboli spustené; Windows pracovisko nemá Linux/WSL. HA 2026.9.3 je cieľ testov, nie deklarácia overenej prevádzkovej kompatibility. Žiadna verzia HACS zatiaľ nebola prevádzkovo overená.
 
 Štruktúra balíka je určená aj pre HACS. Backendové testy sa z koreňa projektu spúšťajú cez `dotnet test App/Backend.Tests/HomeFleet.Api.Tests.csproj`.

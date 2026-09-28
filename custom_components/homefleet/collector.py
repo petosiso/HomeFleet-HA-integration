@@ -29,9 +29,12 @@ async def collect_entities(hass, selected: list[str], result: list[dict], errors
             raw = state.state if state is not None else None
             if not exists:
                 availability = 4
-            elif raw == STATE_UNAVAILABLE:
+            elif registered is not None and registered.disabled_by is not None:
+                availability = 5
+            elif raw == STATE_UNAVAILABLE or state is None:
+                # An enabled registry entry without a state has no loaded platform; HA treats it as unavailable.
                 availability = 2
-            elif raw == STATE_UNKNOWN or (state is None and registered is not None):
+            elif raw == STATE_UNKNOWN:
                 availability = 3
             else:
                 availability = 1

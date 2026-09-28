@@ -119,14 +119,23 @@ class CollectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(items[0]["state"])
         self.assertIsNone(items[4]["state"])
 
-    async def test_registry_entity_without_state_is_unknown(self):
-        REGISTRY.async_get.return_value = types.SimpleNamespace(name="Exists", config_entry_id="entry")
+    async def test_enabled_registry_entity_without_state_is_unavailable(self):
+        REGISTRY.async_get.return_value = types.SimpleNamespace(name="Exists", config_entry_id="entry", disabled_by=None)
         hass = fake_hass(entries=[types.SimpleNamespace(entry_id="entry", domain="esphome")])
         items, errors = [], []
         await collector.collect_entities(hass, ["sensor.registered"], items, errors)
         item = items[0]
-        self.assertEqual(3, item["availability"])
+        self.assertEqual(2, item["availability"])
         self.assertEqual("esphome", item["integrationDomain"])
+
+    async def test_disabled_registry_entity_is_disabled(self):
+        REGISTRY.async_get.return_value = types.SimpleNamespace(name="Off", config_entry_id="entry", disabled_by="user")
+        hass = fake_hass(entries=[types.SimpleNamespace(entry_id="entry", domain="esphome")])
+        items, errors = [], []
+        await collector.collect_entities(hass, ["sensor.disabled"], items, errors)
+        self.assertEqual([], errors)
+        self.assertEqual(5, items[0]["availability"])
+        self.assertIsNone(items[0]["state"])
 
     async def test_integration_domain_is_reported_once(self):
         hass = fake_hass(components={"esphome", "sensor.esphome"},
@@ -350,13 +359,13 @@ class ContractTests(unittest.TestCase):
         contract = json.loads((ROOT.parent / "App/Frontend/src/api/model/openapi.json").read_text(encoding="utf-8"))
         self.assertEqual("homefleet", manifest["domain"])
         self.assertEqual("BlackLabs Watchdog", manifest["name"])
-        self.assertEqual("0.1.4", manifest["version"])
+        self.assertEqual("0.1.5", manifest["version"])
         self.assertTrue(hacs["hide_default_branch"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertIn("post", contract["paths"]["/api/ha-integration/lifechecks"])
         self.assertIn("get", contract["paths"]["/api/ha-integration/connection"])
         schemas = contract["components"]["schemas"]
-        self.assertEqual([1, 2, 3, 4], schemas["EntityAvailability"]["enum"])
+        self.assertEqual([1, 2, 3, 4, 5], schemas["EntityAvailability"]["enum"])
         self.assertEqual([1, 2, 3], schemas["InventoryType"]["enum"])
         self.assertIn("state", schemas["MonitoredEntityReportDto"]["properties"])
         for path, method in (("connection", "get"), ("lifechecks", "post")):
